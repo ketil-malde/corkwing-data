@@ -41,6 +41,8 @@ def extract_xml(anns):
         res.append((mydir, anns))
     return res
 
+def rename(fn):
+    return fn.replace(' ','-')
 
 class Data:
     def __init__(self, conf, mypath):
@@ -67,14 +69,15 @@ class Data:
                 print(mydir, len(anns))
                 # todo: copy images, create masks, output annotations to f
                 for im,spec,pts in anns:
+                    imname = rename(im)
                     i+=1
-                    maskname=f'{im}_{spec}_{i}.png'
+                    maskname=f'{imname}_{spec}_{i}.png'
                     xs = [ x for (x,y) in pts ]
                     ys = [ y for (x,y) in pts ]
                     bbox = ( min(xs), min(ys), max(xs), max(ys) )
-                    f.write(f'{im}\t{spec}\t{bbox}\t{maskname}\n')
-                    os.system(f'cp "Datasetforsegmentation/{mydir}/{im}" images/')
-                    tmpimg = cv2.imread(f'images/{im}')
+                    f.write(f'{imname}\t{spec}\t{bbox}\t{maskname}\n')
+                    os.system(f'cp "Datasetforsegmentation/{mydir}/{im}" images/{imname}')
+                    tmpimg = cv2.imread(f'images/{imname}')
                     H,W,C = tmpimg.shape
                     mask = np.zeros((H,W))
                     p = np.array(pts, dtype=np.int32)
