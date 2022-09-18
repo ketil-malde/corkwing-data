@@ -8,10 +8,10 @@ import cv2
 import numpy as np
 
 defaultconf = {
-    'annotations': ['Nest1_finished', '16_Nest2']
+    'annotations': ['All_annotations']  # ['Nest1_finished', '16_Nest2']
     }
 
-datasrc = 'nautilus:/scratch/disk1/Datasetforsegmentation.zip'
+datasrc = 'dedun:/data/deep/CoastVision/Updated_dataset_object_detection_and_segmentation.zip'
 
 def collectpts(pts):
     '''Convert to list of pairs of floats'''
@@ -19,26 +19,41 @@ def collectpts(pts):
 
 def extract_xml(anns):
     '''Parse xml annotation, output csv table and masks'''
-    res = []
+    res = {}
     assert(isinstance(anns,list))
+
     for fn in anns:
-        tree = et.parse(f'Datasetforsegmentation/{fn}.xml')
+        print(f'Parsing  {fn}.xml')
+        tree = et.parse(f'{fn}.xml')
         r = tree.getroot()
-        mydir = r.find('meta/task/name').text
-        anns = []
-        for ch in r:
-            if ch.tag == 'image':
-                imfile = ch.attrib['name']
-                for poly in ch:
-                    assert(poly.tag == 'polygon')
-                    pts = collectpts(poly.attrib['points'])
-                    for attr in poly:
-                        # image/polygon/attribute(sex,body_shape_guessed,main_orientation,completely_in_frame,type)
-                        assert(attr.tag == 'attribute')
-                        if attr.attrib['name']=='type':
-                            species = attr.text
-                    anns.append((imfile,species,pts))
-        res.append((mydir, anns))
+        tasks = {}
+        for ts in r.findall("meta/project/tasks/task"):
+            mydir = ts.find("name").text
+            tasks[ts.find("id").text] = mydir
+            res[mydir] = []
+
+        for ch in r.findall("image"):
+            cur = []
+            imfile = ch.attrib['name']
+            mydir = tasks[ch.attrib['task_id']]
+            for e in ch:
+                if e.tag == 'polygon':
+                    # image/polygon/attribute(sex,body_shape_guessed,main_orientation,completely_in_frame,type)
+                    pts = collectpts(e.attrib['points'])
+                elif e.tag == 'box':
+                    pts = [(e.attrib['xtl'],e.attrib['ytl']), [(e.attrib['xbr'],e.attrib['ybr']) ] ]
+                else:
+                    pass
+                sex = ''
+                for attr in e:
+                    assert(attr.tag == 'attribute')
+                    if attr.attrib['name'] == 'species':
+                        species = attr.text
+                    if attr.attrib['name'] == 'sex' and not attr.text == 'unknown':
+                        sex = "_"+attr.text
+                cur.append((imfile, species+sex, pts))
+            res[mydir].append(cur)
+    print(res)
     return res
 
 def rename(fn):
